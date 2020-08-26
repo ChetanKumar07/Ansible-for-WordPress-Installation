@@ -1,0 +1,77 @@
+--- 
+- 
+  become: true
+  hosts: webservers
+  name: "Wordpress Installation"
+  tasks: 
+    - 
+      name: "LAMP installation"
+      with_items: 
+        - httpd24
+        - mysql-server
+        - php56
+        - php56-mysqlnd
+        - MySQL-python27
+      yum: "name={{ item }} state=present"
+    - 
+      file: 
+        path: /etc/httpd/conf.d/welcome.conf
+        state: absent
+      name: "Removing httpd welcome page from webserver"
+    - 
+      name: "Downloading wordpress to document root of remote nodes"
+      unarchive: 
+        dest: /var/www/html/
+        remote_src: true
+        src: "http://www.wordpress.org/latest.tar.gz"
+    - 
+      command: "mv /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php"
+      name: "Renaming sample wordpress configuration from webserver"
+    - 
+      lineinfile: "dest=/var/www/html/wordpress/wp-config.php regexp={{ item.regexp }} line={{ item.line }}"
+      name: "Update WordPress config file"
+      with_items: 
+        - 
+          line: "define('DB_NAME', '{{wp_mysql_db}}');"
+          regexp: "define\\( 'DB_NAME', '(database_name_here)+' \\);"
+        - 
+          line: "define('DB_USER', '{{wp_mysql_user}}');"
+          regexp: "define\\( 'DB_USER', '(username_here)+' \\);"
+        - 
+          line: "define('DB_PASSWORD', '{{wp_mysql_password}}');"
+          regexp: "define\\( 'DB_PASSWORD', '(password_here)+' \\);"
+        - 
+          line: "define('DB_HOST', '{{wp_mysql_host}}');"
+          regexp: "define\\( 'DB_HOST', '(localhost)+' \\);"
+    - 
+      lineinfile: "dest=/etc/httpd/conf/httpd.conf line=\"DocumentRoot /var/www/html/wordpress\""
+      name: "Update default Apache site"
+    - 
+      name: "Starting the mysqld service"
+      service: 
+        name: mysqld
+        state: started
+    - 
+      mysql_db: 
+        name: "{{wp_mysql_db}}"
+        state: present
+      name: "Creating database for wordpress"
+    - 
+      mysql_user: 
+        host: "%"
+        name: "{{wp_mysql_user}}"
+        password: "{{wp_mysql_password}}"
+        priv: "*.*:ALL"
+        state: present
+      name: "Creating user for wordpress and allow all permissions to db wordpress"
+    - 
+      name: "starting httpd and mysqld"
+      service: "name={{ item }} state=restarted"
+      with_items: 
+        - httpd
+        - mysqld
+  vars: 
+    wp_mysql_db: wordpress
+    wp_mysql_host: "{{ansible_default_ipv4.address}}"
+    wp_mysql_password: password123
+    wp_mysql_user: wp-admin
