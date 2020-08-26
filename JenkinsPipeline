@@ -1,0 +1,15 @@
+pipeline{
+    agent any
+    stages{
+        stage('SCM checkout'){
+            steps{
+                git 'https://github.com/ChetanKumar07/Ansible-for-WordPress-Installation.git'
+            }
+        }
+        stage('Execute Ansible Playbook'){
+            steps{
+                ansiblePlaybook credentialsId: 'Ansible_Private_Key', disableHostKeyChecking: true, installation: 'Ansible_Test', inventory: 'dev.inv', playbook: 'wordpress.yml'
+            }
+        }
+    }
+}
